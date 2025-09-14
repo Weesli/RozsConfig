@@ -285,7 +285,8 @@ public final class ConfigMapper {
         if (value == null) return null;
         Class<?> t = value.getClass();
 
-        if (isSimpleType(t)) return value;
+        if (isSimpleType(t) && !value.getClass().isEnum()) return value;
+        if (isSimpleType(t) && value.getClass().isEnum()) return ((Enum<?>) value).name();
 
         ObjectSerializer ser = findSerializerFor(t);
         if (ser != null) {
