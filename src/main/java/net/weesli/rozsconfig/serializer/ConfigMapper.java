@@ -277,7 +277,7 @@ public final class ConfigMapper {
     }
 
     private static boolean isSimpleType(Class<?> c) {
-        return c.isPrimitive() || isWrapper(c) || c == String.class;
+        return c.isPrimitive() || isWrapper(c) || c == String.class || c.isEnum();
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -475,7 +475,7 @@ public final class ConfigMapper {
                     if (rv instanceof Map) {
                         converted = buildPojoFromMap(ft, (Map<String, Object>) rv);
                     } else {
-                        converted = rv;
+                        converted = convertToType(rv, ft);
                     }
                 }
                 try { f.set(obj, converted); } catch (IllegalAccessException ignored) {}
