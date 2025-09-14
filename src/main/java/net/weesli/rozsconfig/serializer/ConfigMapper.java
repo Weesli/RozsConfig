@@ -2,6 +2,7 @@ package net.weesli.rozsconfig.serializer;
 
 import net.weesli.rozsconfig.annotations.ConfigKey;
 import net.weesli.rozsconfig.annotations.IgnoreKeys;
+import net.weesli.rozsconfig.model.RozsConfig;
 import net.weesli.rozsconfig.serializer.component.ObjectNode;
 import net.weesli.rozsconfig.serializer.component.ObjectSerializer;
 import org.yaml.snakeyaml.DumperOptions;
@@ -102,10 +103,10 @@ public final class ConfigMapper {
                 Map<String, Object> loaded = yaml.load(reader);
                 currentValues = (loaded != null) ? loaded : new HashMap<>();
             }
-
             Set<String> changeablePrefixes = collectChangeableMapPrefixes(clazz);
             deepMergeDefaultsIntoCurrent(defaultValues, currentValues, "", changeablePrefixes);
 
+            applyRozsConfig(config,clazz, currentValues);
             for (Field field : getAllFields(clazz)) {
                 if (!processed.add(field.getName())) continue;
                 field.setAccessible(true);
@@ -119,6 +120,19 @@ public final class ConfigMapper {
             return config;
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void applyRozsConfig(Object o, Class<?> clazz, Map<String, Object> currentValues) {
+        if (RozsConfig.class.isAssignableFrom(clazz)) {
+            try {
+                Field field = clazz.getDeclaredField("node");
+                field.setAccessible(true);
+                field.set(o, new ObjectNode(currentValues));
+            }catch (NoSuchFieldException ignored){
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
