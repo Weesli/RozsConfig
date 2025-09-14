@@ -126,7 +126,7 @@ public final class ConfigMapper {
     private void applyRozsConfig(Object o, Class<?> clazz, Map<String, Object> currentValues) {
         if (RozsConfig.class.isAssignableFrom(clazz)) {
             try {
-                Field field = clazz.getDeclaredField("node");
+                Field field = RozsConfig.class.getDeclaredField("node");
                 field.setAccessible(true);
                 field.set(o, new ObjectNode(currentValues));
             }catch (NoSuchFieldException ignored){
@@ -275,7 +275,7 @@ public final class ConfigMapper {
     }
 
     private static boolean isSimpleType(Class<?> c) {
-        return c.isPrimitive() || isWrapper(c) || c == String.class || c.isEnum();
+        return c.isPrimitive() || isWrapper(c) || c == String.class;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -300,6 +300,10 @@ public final class ConfigMapper {
                 out.put(k, toPlain(v));
             }
             return out;
+        }
+
+        if (value instanceof Enum<?>){
+            return ((Enum<?>) value).name();
         }
 
         if (value instanceof Collection<?> col) {
@@ -484,14 +488,14 @@ public final class ConfigMapper {
         if (f.isAnnotationPresent(ConfigKey.class)) {
             return f.getAnnotation(ConfigKey.class).value();
         }
-        return f.getName().replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase(Locale.ROOT);
+        return f.getName();
     }
 
     @SuppressWarnings("unchecked")
     private static Object coerce(Object v, Class<?> target) {
         if (v == null) return null;
         if (target.isInstance(v)) return v;
-        if (target.isEnum()) return Enum.valueOf((Class<Enum>) target, v.toString());
+        if (target.isEnum()) return Enum.valueOf((Class<? extends Enum>) target, v.toString());
         if (target == String.class) return String.valueOf(v);
         if (target == boolean.class || target == Boolean.class)
             return (v instanceof Boolean) ? v : Boolean.parseBoolean(v.toString());
@@ -543,15 +547,16 @@ public final class ConfigMapper {
 
     private Set<String> collectChangeableMapPrefixes(Class<?> root) {
         Set<String> out = new HashSet<>();
-        collectChangeableMapPrefixesRecursive(root, "", out, new HashSet<>());
+        collectChangeableMapPrefixesRecursive(root, "", out, new HashSet<>(), currentValues);
         return out;
     }
-
+    @SuppressWarnings("unchecked")
     private void collectChangeableMapPrefixesRecursive(
             Class<?> type,
             String path,
             Set<String> out,
-            Set<Class<?>> visited
+            Set<Class<?>> visited,
+            Map<String, Object> currentAtLevel
     ) {
         if (type == null || type == Object.class) return;
         if (!visited.add(type)) return;
@@ -559,9 +564,14 @@ public final class ConfigMapper {
         for (Field f : getAllFields(type)) {
             f.setAccessible(true);
             String key = resolveKey(f);
-            String full = path.isEmpty() ? key : path + "." + key;
 
+            if (currentAtLevel == null || !currentAtLevel.containsKey(key)) {
+                continue;
+            }
+
+            String full = path.isEmpty() ? key : path + "." + key;
             Class<?> ft = f.getType();
+            Object next = currentAtLevel.get(key);
 
             if (Map.class.isAssignableFrom(ft)) {
                 if (f.isAnnotationPresent(IgnoreKeys.class)) {
@@ -571,9 +581,13 @@ public final class ConfigMapper {
             }
 
             if (!isSimpleType(ft)) {
-                collectChangeableMapPrefixesRecursive(ft, full, out, visited);
+                Map<String, Object> nextMap = (next instanceof Map) ? (Map<String, Object>) next : null;
+                collectChangeableMapPrefixesRecursive(
+                        ft, full, out, visited, nextMap
+                );
             }
         }
     }
+
 
 }
