@@ -1,13 +1,19 @@
 plugins {
     id 'java'
-    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'net.weesli'
-version = '1.0-SNAPSHOT'
+version = '1.0'
 
 repositories {
     mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
 dependencies {
@@ -20,7 +26,6 @@ test {
     useJUnitPlatform()
 }
 
-// start main method
-application {
-    mainClass = 'net.weesli.rozsconfig.Main'
+shadowJar {
+    archiveClassifier.set("")
 }
