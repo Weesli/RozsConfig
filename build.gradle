@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'maven-publish'
 }
 
 group = 'net.weesli'
@@ -28,4 +29,14 @@ test {
 
 shadowJar {
     archiveClassifier.set("")
+}
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = 'net.weesli'
+            artifactId = 'rozsconfig'
+            version = '1.0'
+            from components.java
+        }
+    }
 }
