@@ -190,7 +190,9 @@ public final class ConfigMapper {
             String resolved = resolveKey(field);
             Object existing = currentMap.get(resolved);
             Class<?> type = field.getType();
-
+            if (type == ObjectNode.class){
+                return;
+            }
             if (existing == null && isCollectionOrMap(type)) {
                 Object empty = newDefaultContainer(type);
                 field.set(owner, empty);
