@@ -141,6 +141,7 @@ public final class ConfigMapper {
         try {
             Map<String, Object> out = new LinkedHashMap<>();
             for (Field field : getAllFields(clazz)) {
+                if(field.getType() == ObjectNode.class) continue;
                 field.setAccessible(true);
                 Object value = field.get(object);
                 if (value == null) continue;
