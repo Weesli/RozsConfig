@@ -41,26 +41,28 @@ public final class ConfigMapper {
 
     public ConfigMapper file(File file){
         this.file = file;
-        if (!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
+        createFile(this.file);
         return this;
     }
 
     public ConfigMapper file(String path){
         this.file = new File(path);
-        if (!file.exists()) {
+        createFile(this.file);
+        return this;
+    }
+
+    private void createFile(File file){
+        File parent = this.file.getParentFile();
+        if (!parent.exists()) {
+            parent.mkdirs();
+        }
+        if (!this.file.exists()) {
             try {
-                file.createNewFile();
+                this.file.createNewFile();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
-        return this;
     }
 
     public ConfigMapper load(InputStream is){
