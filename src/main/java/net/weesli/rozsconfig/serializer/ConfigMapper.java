@@ -2,9 +2,11 @@ package net.weesli.rozsconfig.serializer;
 
 import net.weesli.rozsconfig.annotations.ConfigKey;
 import net.weesli.rozsconfig.annotations.IgnoreKeys;
+import net.weesli.rozsconfig.language.LanguageConfig;
 import net.weesli.rozsconfig.model.RozsConfig;
 import net.weesli.rozsconfig.serializer.component.ObjectNode;
 import net.weesli.rozsconfig.serializer.component.ObjectSerializer;
+import org.jetbrains.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -13,6 +15,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.InputStream;
 import java.lang.reflect.*;
+import java.nio.file.Path;
 import java.util.*;
 
 public final class ConfigMapper {
@@ -92,6 +95,16 @@ public final class ConfigMapper {
     public ConfigMapper withSerializer(ObjectSerializer<?> serializer){
         serializers.add(serializer);
         return this;
+    }
+
+    public <T> LanguageConfig<T> asLanguageConfig(
+            List<String> languageKeys,
+            Path path,
+            String configName,
+            @Nullable InputStream defaultConfig,
+            Class<T> clazz
+    ){
+        return new LanguageConfig<>(languageKeys, path, configName, defaultConfig,clazz);
     }
 
     @SuppressWarnings("unchecked")

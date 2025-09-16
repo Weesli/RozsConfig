@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'net.weesli'
-version = '1.1.1'
+version = '1.1.2'
 
 repositories {
     mavenCentral()
@@ -21,6 +21,7 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     implementation("org.yaml:snakeyaml:2.5")
+    implementation("org.jetbrains:annotations:24.0.1")
 }
 
 test {
@@ -35,7 +36,7 @@ publishing {
         maven(MavenPublication) {
             groupId = 'net.weesli'
             artifactId = 'rozsconfig'
-            version = '1.1.1'
+            version = '1.1.2'
             from components.java
         }
     }
