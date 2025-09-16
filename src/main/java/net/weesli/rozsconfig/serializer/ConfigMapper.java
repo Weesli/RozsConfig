@@ -101,7 +101,7 @@ public final class ConfigMapper {
             List<String> languageKeys,
             Path path,
             String configName,
-            @Nullable String defaultConfig,
+            Map<String,InputStream> defaultConfig,
             Class<T> clazz
     ){
         return new LanguageConfig<>(languageKeys, path, configName, defaultConfig,clazz);
