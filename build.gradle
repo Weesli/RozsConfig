@@ -2,10 +2,11 @@ plugins {
     id 'java'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'maven-publish'
+    id 'application'
 }
 
 group = 'net.weesli'
-version = '1.1.5'
+version = '1.2.0'
 
 repositories {
     mavenCentral()
@@ -36,8 +37,12 @@ publishing {
         maven(MavenPublication) {
             groupId = 'net.weesli'
             artifactId = 'rozsconfig'
-            version = '1.1.5'
+            version = '1.2.0'
             from components.java
         }
     }
+}
+
+application {
+    mainClass = 'net.weesli.rozsconfig.Main'
 }

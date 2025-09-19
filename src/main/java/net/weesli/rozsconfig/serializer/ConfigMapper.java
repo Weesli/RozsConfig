@@ -1,5 +1,6 @@
 package net.weesli.rozsconfig.serializer;
 
+import net.weesli.rozsconfig.annotations.Comment;
 import net.weesli.rozsconfig.annotations.ConfigKey;
 import net.weesli.rozsconfig.annotations.IgnoreKeys;
 import net.weesli.rozsconfig.language.LanguageConfig;
@@ -152,28 +153,53 @@ public final class ConfigMapper {
     }
 
     @SuppressWarnings("unchecked")
-    public void save(Object object){
+    public void save(Object object) {
+        StringBuilder sb = new StringBuilder();
         try {
-            Map<String, Object> out = new LinkedHashMap<>();
-            for (Field field : getAllFields(clazz)) {
-                if(field.getType() == ObjectNode.class) continue;
-                field.setAccessible(true);
-                Object value = field.get(object);
-                if (value == null) continue;
+            writeFields(object, sb, 0);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
-                String key = resolveKey(field);
-                Object plain = toPlain(value);
-                out.put(key, plain);
-            }
-            try(FileWriter writer = new FileWriter(file)){
-                yaml.dump(out, writer);
-            }catch (Exception e){
-                throw new RuntimeException(e);
-            }
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.write(sb.toString());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
+
+
+    private void writeFields(Object obj, StringBuilder sb, int indent) throws IllegalAccessException {
+        for (Field field : getAllFields(obj.getClass())) {
+            if (field.getType() == ObjectNode.class) continue;
+            field.setAccessible(true);
+            Object value = field.get(obj);
+            if (value == null) continue;
+
+            String key = resolveKey(field);
+
+            if (field.isAnnotationPresent(Comment.class)) {
+                Comment comment = field.getAnnotation(Comment.class);
+                for (String s : comment.value()) {
+                    indent(sb, indent).append("# ").append(s).append("\n");
+                }
+            }
+
+            if (isSimpleType(field.getType())) {
+                indent(sb, indent).append(key).append(": ").append(value).append("\n");
+            } else {
+                indent(sb, indent).append(key).append(":\n");
+                writeFields(value, sb, indent + 2);
+            }
+        }
+    }
+
+    private StringBuilder indent(StringBuilder sb, int indent) {
+        for (int i = 0; i < indent; i++) sb.append(" ");
+        return sb;
+    }
+
+
 
     private void processPrimitive(Object owner, Field field, Map<String,Object> currentMap){
         try {
