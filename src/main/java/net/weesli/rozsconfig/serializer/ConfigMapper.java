@@ -154,20 +154,50 @@ public final class ConfigMapper {
 
     @SuppressWarnings("unchecked")
     public void save(Object object) {
-        StringBuilder sb = new StringBuilder();
-        try {
-            writeFields(object, sb, 0);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
         try (FileWriter writer = new FileWriter(file)) {
+            StringBuilder sb = new StringBuilder();
+            writeYamlWithComments(object, sb, 0);
             writer.write(sb.toString());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
+    private void writeYamlWithComments(Object obj, StringBuilder sb, int indent) throws IllegalAccessException {
+        for (Field field : getAllFields(obj.getClass())) {
+            if (field.getType() == ObjectNode.class) continue;
+            field.setAccessible(true);
+
+            Object value = field.get(obj);
+            if (value == null) continue;
+
+            String key = resolveKey(field);
+
+            if (field.isAnnotationPresent(Comment.class)) {
+                Comment comment = field.getAnnotation(Comment.class);
+                for (String s : comment.value()) {
+                    indent(sb, indent).append("# ").append(s).append("\n");
+                }
+            }
+
+            Object plain = toPlain(value);
+            dumpSingleEntry(sb, indent, key, plain);
+        }
+    }
+
+    private void dumpSingleEntry(StringBuilder sb, int indent, String key, Object plainVal) {
+        Map<String, Object> one = new LinkedHashMap<>();
+        one.put(key, plainVal);
+
+        String dumped = yaml.dump(one);
+        if (dumped.endsWith("\n")) dumped = dumped.substring(0, dumped.length() - 1);
+
+        String[] lines = dumped.split("\n", -1);
+        for (String line : lines) {
+            if (line.isEmpty()) continue;
+            indent(sb, indent).append(line).append("\n");
+        }
+    }
 
     private void writeFields(Object obj, StringBuilder sb, int indent) throws IllegalAccessException {
         for (Field field : getAllFields(obj.getClass())) {
@@ -360,6 +390,7 @@ public final class ConfigMapper {
         Map<String,Object> out = new LinkedHashMap<>();
         for (Field f : getAllFields(t)) {
             try {
+                if (f.getType() == ObjectNode.class) continue;
                 f.setAccessible(true);
                 Object fv = f.get(value);
                 if (fv == null) continue;
