@@ -7,7 +7,6 @@ import net.weesli.rozsconfig.language.LanguageConfig;
 import net.weesli.rozsconfig.model.RozsConfig;
 import net.weesli.rozsconfig.serializer.component.ObjectNode;
 import net.weesli.rozsconfig.serializer.component.ObjectSerializer;
-import org.jetbrains.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -433,9 +432,15 @@ public final class ConfigMapper {
             Class<?> valueType = getMapValueType(field);
             for (Map.Entry<?, ?> en : raw.entrySet()) {
                 Object v = en.getValue();
-                Object converted = (valueType == null || valueType == Object.class)
-                        ? v
-                        : convertToType(v, valueType);
+                Object converted;
+                if (valueType == null || valueType == Object.class) {
+                    converted = v;
+                } else if (v instanceof Map && !isSimpleType(valueType)) {
+                    converted = buildPojoFromMap(valueType, (Map<String, Object>) v);
+                } else {
+                    converted = convertToType(v, valueType);
+                }
+
                 newMap.put(en.getKey(), converted);
             }
             return newMap;
@@ -448,9 +453,15 @@ public final class ConfigMapper {
 
             Class<?> elemType = getCollectionElementType(field);
             for (Object v : raw) {
-                Object converted = (elemType == null || elemType == Object.class)
-                        ? v
-                        : convertToType(v, elemType);
+                Object converted;
+                if (elemType == null || elemType == Object.class) {
+                    converted = v;
+                } else if (v instanceof Map && !isSimpleType(elemType)) {
+                    converted = buildPojoFromMap(elemType, (Map<String, Object>) v);
+                } else {
+                    converted = convertToType(v, elemType);
+                }
+
                 newCol.add(converted);
             }
             return newCol;
@@ -636,31 +647,46 @@ public final class ConfigMapper {
     ) {
         if (type == null || type == Object.class) return;
         if (!visited.add(type)) return;
+        if (type.isAnnotationPresent(IgnoreKeys.class) && !path.isEmpty()) {
+            out.add(path);
+        }
 
         for (Field f : getAllFields(type)) {
             f.setAccessible(true);
             String key = resolveKey(f);
 
-            if (currentAtLevel == null || !currentAtLevel.containsKey(key)) {
+            if (currentAtLevel != null && !currentAtLevel.containsKey(key)) {
                 continue;
             }
 
             String full = path.isEmpty() ? key : path + "." + key;
             Class<?> ft = f.getType();
-            Object next = currentAtLevel.get(key);
+            Object next = (currentAtLevel != null) ? currentAtLevel.get(key) : null;
+
+            if (f.isAnnotationPresent(IgnoreKeys.class)) {
+                out.add(full);
+            }
 
             if (Map.class.isAssignableFrom(ft)) {
-                if (f.isAnnotationPresent(IgnoreKeys.class)) {
-                    out.add(full);
+                Class<?> valueType = getMapValueType(f);
+                Map<String, Object> nextMap = (next instanceof Map) ? (Map<String, Object>) next : null;
+
+                if (valueType != null && !isSimpleType(valueType)) {
+                    collectChangeableMapPrefixesRecursive(valueType, full, out, visited, nextMap);
                 }
                 continue;
             }
 
+            if (Collection.class.isAssignableFrom(ft)) {
+                Class<?> elemType = getCollectionElementType(f);
+                if (elemType != null && !isSimpleType(elemType)) {
+                    collectChangeableMapPrefixesRecursive(elemType, full, out, visited, null);
+                }
+                continue;
+            }
             if (!isSimpleType(ft)) {
                 Map<String, Object> nextMap = (next instanceof Map) ? (Map<String, Object>) next : null;
-                collectChangeableMapPrefixesRecursive(
-                        ft, full, out, visited, nextMap
-                );
+                collectChangeableMapPrefixesRecursive(ft, full, out, visited, nextMap);
             }
         }
     }
