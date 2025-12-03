@@ -2,6 +2,7 @@ package net.weesli.rozsconfig.serializer;
 
 import net.weesli.rozsconfig.annotations.Comment;
 import net.weesli.rozsconfig.annotations.ConfigKey;
+import net.weesli.rozsconfig.annotations.IgnoreField;
 import net.weesli.rozsconfig.annotations.IgnoreKeys;
 import net.weesli.rozsconfig.language.LanguageConfig;
 import net.weesli.rozsconfig.model.RozsConfig;
@@ -165,6 +166,7 @@ public final class ConfigMapper {
     private void writeYamlWithComments(Object obj, StringBuilder sb, int indent) throws IllegalAccessException {
         for (Field field : getAllFields(obj.getClass())) {
             if (field.getType() == ObjectNode.class) continue;
+            if (field.isAnnotationPresent(IgnoreField.class)) continue;
             field.setAccessible(true);
 
             Object value = field.get(obj);
@@ -596,29 +598,19 @@ public final class ConfigMapper {
         }
         return v;
     }
-
     @SuppressWarnings("unchecked")
-    private static void deepMergeDefaultsIntoCurrent(
-            Map<String, Object> defaults,
-            Map<String, Object> current,
-            String path,
-            Set<String> changeablePrefixes
-    ) {
+    private static void deepMergeDefaultsIntoCurrent(Map<String, Object> defaults, Map<String, Object> current, String path, Set<String> changeablePrefixes) {
         if (defaults == null) return;
         if (current == null) return;
-
         for (Map.Entry<String, Object> e : defaults.entrySet()) {
             String key = e.getKey();
             String fullPath = path.isEmpty() ? key : path + "." + key;
-
             if (!current.containsKey(key)) {
                 current.put(key, e.getValue());
                 continue;
             }
-
             Object dVal = e.getValue();
             Object cVal = current.get(key);
-
             boolean ignoreChildren = changeablePrefixes.contains(fullPath);
 
             if (!ignoreChildren && dVal instanceof Map && cVal instanceof Map) {
@@ -628,6 +620,14 @@ public final class ConfigMapper {
                         fullPath,
                         changeablePrefixes
                 );
+            }
+            else if (!ignoreChildren && dVal instanceof Collection && cVal instanceof Collection) {
+                Collection<?> defaultCol = (Collection<?>) dVal;
+                Collection<?> currentCol = (Collection<?>) cVal;
+
+                if (currentCol.isEmpty() && !defaultCol.isEmpty()) {
+                    current.put(key, new ArrayList<>(defaultCol));
+                }
             }
         }
     }
