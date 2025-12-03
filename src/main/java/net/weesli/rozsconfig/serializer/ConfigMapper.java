@@ -125,6 +125,7 @@ public final class ConfigMapper {
             applyRozsConfig(config,clazz, currentValues);
             for (Field field : getAllFields(clazz)) {
                 if (!processed.add(field.getName())) continue;
+                if (field.isAnnotationPresent(IgnoreField.class)) continue;
                 field.setAccessible(true);
 
                 if (isSimpleType(field.getType())) {
