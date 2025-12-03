@@ -125,6 +125,12 @@ public final class ConfigMapper {
             applyRozsConfig(config,clazz, currentValues);
             for (Field field : getAllFields(clazz)) {
                 if (!processed.add(field.getName())) continue;
+
+                int modifiers = field.getModifiers();
+                if (Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers)) {
+                    continue;
+                }
+
                 if (field.isAnnotationPresent(IgnoreField.class)) continue;
                 field.setAccessible(true);
 
@@ -264,6 +270,10 @@ public final class ConfigMapper {
             String resolved = resolveKey(field);
             Object existing = currentMap.get(resolved);
             Class<?> type = field.getType();
+            int modifiers = field.getModifiers();
+            if (Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers)) {
+                return;
+            }
             if (type == ObjectNode.class){
                 return;
             }
