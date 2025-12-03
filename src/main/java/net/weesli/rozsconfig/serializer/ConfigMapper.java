@@ -267,6 +267,7 @@ public final class ConfigMapper {
             if (type == ObjectNode.class){
                 return;
             }
+            if (owner.getClass().isAnnotationPresent(IgnoreField.class)) return;
             if (existing == null && isCollectionOrMap(type)) {
                 Object empty = newDefaultContainer(type);
                 field.set(owner, empty);
