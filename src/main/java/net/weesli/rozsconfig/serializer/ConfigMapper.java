@@ -11,11 +11,9 @@ import net.weesli.rozsconfig.serializer.component.ObjectSerializer;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.InputStream;
+import java.io.*;
 import java.lang.reflect.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -66,34 +64,68 @@ public final class ConfigMapper {
         }
     }
 
-    public ConfigMapper load(InputStream is){
+    public ConfigMapper load(InputStream is) {
         if (is == null) return this;
-        Map<String, Object> loaded = yaml.load(is);
-        defaultValues = (loaded != null) ? loaded : new HashMap<>();
+
+        try {
+            String yamlContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+
+            loadAndPreserveComments(this.file, yamlContent);
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
         return this;
     }
 
-    public ConfigMapper load(File file){
+
+    public ConfigMapper load(File file) {
         if (file == null) return this;
-        try(FileReader reader = new FileReader(file)){
-            Map<String, Object> loaded = yaml.load(reader);
-            defaultValues = (loaded != null) ? loaded : new HashMap<>();
-        } catch (Exception e){
+
+        try (FileReader reader = new FileReader(file)) {
+            String content = readerToString(reader);
+            loadAndPreserveComments(file, content);
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
         return this;
     }
 
-    public ConfigMapper load(String path){
-        if (path == null) return this;
-        try(FileReader reader = new FileReader(path)){
-            Map<String, Object> loaded = yaml.load(reader);
-            defaultValues = (loaded != null) ? loaded : new HashMap<>();
-        } catch (Exception e){
+    public ConfigMapper load(String path) {
+        return load(new File(path));
+    }
+
+    // Load helpers \ start
+    private String readerToString(Reader reader) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        char[] buf = new char[4096];
+        int r;
+        while ((r = reader.read(buf)) != -1) {
+            sb.append(buf, 0, r);
+        }
+        return sb.toString();
+    }
+
+    private void loadAndPreserveComments(File file, String yamlContent) {
+        try {
+            if (!file.exists() || file.length() == 0) {
+                try (FileWriter writer = new FileWriter(file)) {
+                    writer.write(yamlContent);
+                }
+            }
+
+            try (FileReader reader = new FileReader(file)) {
+                Map<String, Object> loaded = yaml.load(reader);
+                defaultValues = (loaded != null) ? loaded : new HashMap<>();
+            }
+
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return this;
     }
+
+    // load helpers \ end
 
     public ConfigMapper withSerializer(ObjectSerializer<?> serializer){
         serializers.add(serializer);
@@ -163,14 +195,14 @@ public final class ConfigMapper {
     public void save(Object object) {
         try (FileWriter writer = new FileWriter(file)) {
             StringBuilder sb = new StringBuilder();
-            writeYamlWithComments(object, sb, 0);
+            writeYamlWithComments(object, sb);
             writer.write(sb.toString());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void writeYamlWithComments(Object obj, StringBuilder sb, int indent) throws IllegalAccessException {
+    private void writeYamlWithComments(Object obj, StringBuilder sb) throws IllegalAccessException {
         for (Field field : getAllFields(obj.getClass())) {
             if (field.getType() == ObjectNode.class) continue;
             if (field.isAnnotationPresent(IgnoreField.class)) continue;
@@ -180,19 +212,42 @@ public final class ConfigMapper {
             if (value == null) continue;
 
             String key = resolveKey(field);
-
             if (field.isAnnotationPresent(Comment.class)) {
-                Comment comment = field.getAnnotation(Comment.class);
-                for (String s : comment.value()) {
-                    indent(sb, indent).append("# ").append(s).append("\n");
+                for (String c : field.getAnnotation(Comment.class).value()) {
+                    indent(sb, 0).append("# ").append(c).append("\n");
                 }
             }
 
             Object plain = toPlain(value);
-            dumpSingleEntry(sb, indent, key, plain);
+
+            writeValue(sb, 0, key, plain);
         }
     }
 
+
+    @SuppressWarnings("unchecked")
+    private void writeValue(StringBuilder sb, int indent, String key, Object value) {
+        indent(sb, indent).append(key).append(":");
+
+        if (value instanceof Map || value instanceof List) {
+            sb.append("\n");
+
+            String dumped = dumpValue(value);
+            for (String line : dumped.split("\n")) {
+                indent(sb, indent + 2).append(line).append("\n");
+            }
+        } else {
+            sb.append(" ").append(dumpValue(value)).append("\n");
+        }
+    }
+
+    private String dumpValue(Object value) {
+        String dumped = yaml.dump(value);
+        return dumped.endsWith("\n")
+                ? dumped.substring(0, dumped.length() - 1)
+                : dumped;
+    }
+    @Deprecated
     private void dumpSingleEntry(StringBuilder sb, int indent, String key, Object plainVal) {
         Map<String, Object> one = new LinkedHashMap<>();
         one.put(key, plainVal);
@@ -207,37 +262,10 @@ public final class ConfigMapper {
         }
     }
 
-    private void writeFields(Object obj, StringBuilder sb, int indent) throws IllegalAccessException {
-        for (Field field : getAllFields(obj.getClass())) {
-            if (field.getType() == ObjectNode.class) continue;
-            field.setAccessible(true);
-            Object value = field.get(obj);
-            if (value == null) continue;
-
-            String key = resolveKey(field);
-
-            if (field.isAnnotationPresent(Comment.class)) {
-                Comment comment = field.getAnnotation(Comment.class);
-                for (String s : comment.value()) {
-                    indent(sb, indent).append("# ").append(s).append("\n");
-                }
-            }
-
-            if (isSimpleType(field.getType())) {
-                indent(sb, indent).append(key).append(": ").append(value).append("\n");
-            } else {
-                indent(sb, indent).append(key).append(":\n");
-                writeFields(value, sb, indent + 2);
-            }
-        }
-    }
-
     private StringBuilder indent(StringBuilder sb, int indent) {
         for (int i = 0; i < indent; i++) sb.append(" ");
         return sb;
     }
-
-
 
     private void processPrimitive(Object owner, Field field, Map<String,Object> currentMap){
         try {
