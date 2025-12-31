@@ -17,8 +17,8 @@ public class LanguageConfig<T> {
     public LanguageConfig(List<String> languageKeys, Path path, String configName, Map<String, InputStream> defaultConfig, Class<T> clazz) {
         for (String languageKey : languageKeys) {
             ConfigMapper mapper = ConfigMapper.of(clazz)
-                    .load(defaultConfig.get(languageKey))
-                    .file(path.resolve(languageKey).resolve(configName + ".yml").toFile());
+                    .file(path.resolve(languageKey).resolve(configName + ".yml").toFile())
+                    .load(defaultConfig.get(languageKey));
             languageMap.put(languageKey, mapper);
         }
     }
