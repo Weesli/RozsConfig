@@ -137,6 +137,29 @@ final class TypeUtils {
         return null;
     }
 
+    static Class<?> getRawClass(Type type) {
+        if (type instanceof Class<?> c) return c;
+        if (type instanceof ParameterizedType pt && pt.getRawType() instanceof Class<?> c)
+            return c;
+        return null;
+    }
+
+    static Type getMapValueGenericType(Type containerType) {
+        if (containerType instanceof ParameterizedType pt) {
+            Type[] args = pt.getActualTypeArguments();
+            if (args.length == 2) return args[1];
+        }
+        return null;
+    }
+
+    static Type getCollectionElementGenericType(Type containerType) {
+        if (containerType instanceof ParameterizedType pt) {
+            Type[] args = pt.getActualTypeArguments();
+            if (args.length == 1) return args[0];
+        }
+        return null;
+    }
+
     static ObjectSerializer<?> findSerializerFor(Class<?> type, List<ObjectSerializer<?>> serializers) {
         for (ObjectSerializer<?> s : serializers) {
             if (s.isType(type)) return s;

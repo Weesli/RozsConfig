@@ -137,6 +137,12 @@ final class ConfigReader {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     Object materializeContainerFromYaml(Object yamlValue, Class<?> targetType, Field field) {
+        Type genericType = field != null ? field.getGenericType() : null;
+        return materializeContainerFromYaml(yamlValue, targetType, genericType);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    Object materializeContainerFromYaml(Object yamlValue, Class<?> targetType, Type genericType) {
         if (yamlValue == null) return null;
 
         if (Map.class.isAssignableFrom(targetType)) {
@@ -144,19 +150,22 @@ final class ConfigReader {
             Map<?, ?> raw = (Map<?, ?>) yamlValue;
             Map newMap = (Map) TypeUtils.newDefaultContainer(targetType);
 
-            Class<?> valueType = TypeUtils.getMapValueType(field);
+            Type valueGenericType = TypeUtils.getMapValueGenericType(genericType);
+            Class<?> valueType = valueGenericType != null ? TypeUtils.getRawClass(valueGenericType) : null;
 
             for (Map.Entry<?, ?> en : raw.entrySet()) {
                 Object v = en.getValue();
                 Object converted = v;
 
                 if (valueType != null && valueType != Object.class) {
-                    if (v instanceof Map && !TypeUtils.isSimpleType(valueType) && !TypeUtils.isCollectionOrMap(valueType)) {
+                    if (TypeUtils.isCollectionOrMap(valueType)) {
+                        converted = materializeContainerFromYaml(v, valueType, valueGenericType);
+                    } else if (v instanceof Map && !TypeUtils.isSimpleType(valueType)) {
                         converted = buildPojoFromMap(valueType, (Map<String, Object>) v);
                     } else {
                         converted = convertToType(v, valueType);
                     }
-                } else if (v instanceof Map && field != null) {
+                } else if (v instanceof Map) {
                     converted = tryBuildPojoFromUnknownMap(v);
                 }
 
@@ -171,12 +180,16 @@ final class ConfigReader {
             Collection<?> raw = (Collection<?>) yamlValue;
             Collection newCol = (Collection) TypeUtils.newDefaultContainer(targetType);
 
-            Class<?> elemType = TypeUtils.getCollectionElementType(field);
+            Type elemGenericType = TypeUtils.getCollectionElementGenericType(genericType);
+            Class<?> elemType = elemGenericType != null ? TypeUtils.getRawClass(elemGenericType) : null;
+
             for (Object v : raw) {
                 Object converted;
                 if (elemType == null || elemType == Object.class) {
                     converted = v;
-                } else if (v instanceof Map && !TypeUtils.isSimpleType(elemType) && !TypeUtils.isCollectionOrMap(elemType)) {
+                } else if (TypeUtils.isCollectionOrMap(elemType)) {
+                    converted = materializeContainerFromYaml(v, elemType, elemGenericType);
+                } else if (v instanceof Map && !TypeUtils.isSimpleType(elemType)) {
                     converted = buildPojoFromMap(elemType, (Map<String, Object>) v);
                 } else {
                     converted = convertToType(v, elemType);
