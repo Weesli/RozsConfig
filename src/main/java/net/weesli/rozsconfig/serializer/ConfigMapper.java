@@ -108,6 +108,24 @@ public final class ConfigMapper {
                 try (FileWriter writer = new FileWriter(file)) {
                     writer.write(yamlContent);
                 }
+            } else {
+                Map<String, Object> resourceValues = yaml.load(yamlContent);
+                Map<String, Object> diskValues;
+                try (FileReader reader = new FileReader(file)) {
+                    diskValues = yaml.load(reader);
+                }
+                if (resourceValues == null) resourceValues = new HashMap<>();
+                if (diskValues == null) diskValues = new HashMap<>();
+
+                int sizeBefore = countKeys(diskValues);
+                merge(resourceValues, diskValues);
+                int sizeAfter = countKeys(diskValues);
+
+                if (sizeAfter > sizeBefore) {
+                    try (FileWriter writer = new FileWriter(file)) {
+                        writer.write(yaml.dump(diskValues));
+                    }
+                }
             }
 
             try (FileReader reader = new FileReader(file)) {
@@ -117,6 +135,40 @@ public final class ConfigMapper {
 
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private int countKeys(Map<String, Object> map) {
+        int count = 0;
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            count++;
+            if (entry.getValue() instanceof Map) {
+                count += countKeys((Map<String, Object>) entry.getValue());
+            }
+        }
+        return count;
+    }
+
+    private void merge(Map<String, Object> source, Map<String, Object> target) {
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+
+            String key = entry.getKey();
+            Object value = entry.getValue();
+
+            if (!target.containsKey(key)) {
+                target.put(key, value);
+                continue;
+            }
+
+            Object targetValue = target.get(key);
+
+            if (value instanceof Map<?, ?> sourceMap &&
+                    targetValue instanceof Map<?, ?> targetMap) {
+
+                merge((Map<String, Object>) sourceMap,
+                        (Map<String, Object>) targetMap);
+            }
         }
     }
 
