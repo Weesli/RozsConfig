@@ -117,6 +117,9 @@ public final class ConfigMapper {
                 if (resourceValues == null) resourceValues = new HashMap<>();
                 if (diskValues == null) diskValues = new HashMap<>();
 
+                // Remove NullableFields from resourceValues so they are not forcefully merged if they don't exist on disk
+                removeNullableFields(clazz, resourceValues);
+
                 int sizeBefore = countKeys(diskValues);
                 merge(resourceValues, diskValues);
                 int sizeAfter = countKeys(diskValues);
@@ -135,6 +138,43 @@ public final class ConfigMapper {
 
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void removeNullableFields(Type currentType, Object value) {
+        if (currentType == null || value == null) return;
+        
+        Class<?> rawClass = TypeUtils.getRawClass(currentType);
+        if (rawClass == null || TypeUtils.isSimpleType(rawClass)) return;
+
+        if (Map.class.isAssignableFrom(rawClass) && value instanceof Map) {
+            Type valType = TypeUtils.getMapValueGenericType(currentType);
+            if (valType != null) {
+                for (Object nestedVal : ((Map<?, ?>) value).values()) {
+                    removeNullableFields(valType, nestedVal);
+                }
+            }
+        } else if (Collection.class.isAssignableFrom(rawClass) && value instanceof Collection) {
+            Type elemType = TypeUtils.getCollectionElementGenericType(currentType);
+            if (elemType != null) {
+                for (Object nestedVal : (Collection<?>) value) {
+                    removeNullableFields(elemType, nestedVal);
+                }
+            }
+        } else if (value instanceof Map) {
+            Map<String, Object> map = (Map<String, Object>) value;
+            for (Field field : TypeUtils.getAllFields(rawClass)) {
+                String key = field.getName();
+                if (field.isAnnotationPresent(net.weesli.rozsconfig.annotations.ConfigKey.class)) {
+                    key = field.getAnnotation(net.weesli.rozsconfig.annotations.ConfigKey.class).value();
+                }
+
+                if (field.isAnnotationPresent(net.weesli.rozsconfig.annotations.NullableField.class)) {
+                    map.remove(key);
+                } else if (map.containsKey(key)) {
+                    removeNullableFields(field.getGenericType(), map.get(key));
+                }
+            }
         }
     }
 

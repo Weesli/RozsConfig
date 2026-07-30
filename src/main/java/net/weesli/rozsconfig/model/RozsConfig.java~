@@ -1,0 +1,9 @@
+package net.weesli.rozsconfig.model;
+
+public class RozsConfig {
+
+    public <T> T get(String key, Class<T> clazz) {
+        // get a field from extended class
+    }
+
+}

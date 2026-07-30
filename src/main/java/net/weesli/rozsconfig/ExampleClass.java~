@@ -1,0 +1,16 @@
+package net.weesli.rozsconfig;
+
+import net.weesli.rozsconfig.annotations.Comment;
+
+public class ExampleClass {
+
+    @Comment("Example comment")
+    private int ax;
+    @Comment("Inner comment")
+    private InnerClass innerClass;
+
+    public static class InnerClass {
+        @Comment("Inner comment")
+        private int bx;
+    }
+}
