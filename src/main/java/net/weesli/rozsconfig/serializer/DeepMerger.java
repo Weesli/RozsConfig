@@ -57,9 +57,11 @@ final class DeepMerger {
     ) {
         if (type == null || type == Object.class) return;
         if (!visited.add(type)) return;
-        if (type.isAnnotationPresent(IgnoreKeys.class) && !path.isEmpty()) {
-            out.add(path);
-        }
+        
+        try {
+            if (type.isAnnotationPresent(IgnoreKeys.class) && !path.isEmpty()) {
+                out.add(path);
+            }
 
         for (Field f : TypeUtils.getAllFields(type)) {
             f.setAccessible(true);
@@ -82,7 +84,17 @@ final class DeepMerger {
                 Map<String, Object> nextMap = (next instanceof Map) ? (Map<String, Object>) next : null;
 
                 if (valueType != null && !TypeUtils.isSimpleType(valueType)) {
-                    collectChangeableMapPrefixesRecursive(valueType, full, out, visited, nextMap);
+                    if (nextMap != null) {
+                        for (Map.Entry<String, Object> entry : nextMap.entrySet()) {
+                            if (entry.getValue() instanceof Map) {
+                                String entryPath = full + "." + entry.getKey();
+                                collectChangeableMapPrefixesRecursive(valueType, entryPath, out, visited, (Map<String, Object>) entry.getValue());
+                            }
+                        }
+                    } else {
+                        // Even if it's null, we could pass null to recurse, but path building needs the dynamic keys.
+                        // Without dynamic keys, we can't build the prefix.
+                    }
                 }
                 continue;
             }
@@ -98,6 +110,9 @@ final class DeepMerger {
                 Map<String, Object> nextMap = (next instanceof Map) ? (Map<String, Object>) next : null;
                 collectChangeableMapPrefixesRecursive(ft, full, out, visited, nextMap);
             }
+        }
+        } finally {
+            visited.remove(type);
         }
     }
 }

@@ -121,7 +121,8 @@ public final class ConfigMapper {
                 removeNullableFields(clazz, resourceValues);
 
                 int sizeBefore = countKeys(diskValues);
-                merge(resourceValues, diskValues);
+                Set<String> changeablePrefixes = DeepMerger.collectChangeableMapPrefixes(clazz, diskValues);
+                DeepMerger.deepMergeDefaultsIntoCurrent(resourceValues, diskValues, "", changeablePrefixes);
                 int sizeAfter = countKeys(diskValues);
 
                 if (sizeAfter > sizeBefore) {
