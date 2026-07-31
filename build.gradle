@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'net.weesli'
-version = '1.6.4-SNAPSHOT'
+version = '1.6.4'
 
 repositories {
     mavenCentral()
@@ -37,7 +37,7 @@ publishing {
         maven(MavenPublication) {
             groupId = 'net.weesli'
             artifactId = 'RozsConfig'
-            version = '1.6.4-SNAPSHOT'
+            version = '1.6.4'
             from components.java
         }
     }
